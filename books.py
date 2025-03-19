@@ -4,18 +4,18 @@ import requests
 # Set page configuration
 st.set_page_config(page_title="📚 Book Explorer", layout="wide")
 
-# Custom CSS for background colors
+# Custom CSS for styling
 st.markdown(
     """
     <style>
         .main {
-            background-color: #FFDAB9;  /* Peach background */
+            background-color: #FFDAB9;
         }
         [data-testid="stSidebar"] {
-            background-color: #D2B48C;  /* Light brown sidebar */
+            background-color: #D2B48C;
         }
         .stButton > button {
-            background-color: #8B4513 !important;  /* Brown button */
+            background-color: #8B4513 !important;
             color: white !important;
             border-radius: 5px;
         }
@@ -41,12 +41,14 @@ if "favorites" not in st.session_state:
 if "user_books" not in st.session_state:
     st.session_state.user_books = []
 
-# Function to fetch books by category
+# Function to fetch books
 def fetch_books(category):
-    search_query = categories.get(category, "fiction")  # Default to Fiction if not found
+    search_query = categories.get(category, "fiction")
     response = requests.get(API_URL.format(search_term=search_query))
     if response.status_code == 200:
-        return response.json().get("items", [])[:5]  # Fetch first 5 books
+        data = response.json()
+        return data.get("items", [])[:5]
+    st.error("Failed to fetch books. Please try again later.")
     return []
 
 # Function to add a book to favorites
@@ -61,7 +63,7 @@ def remove_from_favorites(book):
         st.session_state.favorites.remove(book)
         st.warning(f"❌ '{book['volumeInfo'].get('title', 'No Title')}' removed from favorites.")
 
-# Function to add a user-created book
+# Function to add a custom book
 def add_custom_book(title, author, category, image_url):
     if title and author and category:
         new_book = {
@@ -77,7 +79,7 @@ def add_custom_book(title, author, category, image_url):
     else:
         st.error("⚠️ Please provide Title, Author, and Category.")
 
-# Function to remove a user-added book
+# Function to remove a custom book
 def remove_custom_book(book):
     if book in st.session_state.user_books:
         st.session_state.user_books.remove(book)
@@ -92,9 +94,8 @@ category_name = st.sidebar.selectbox("📂 Choose a Category:", list(categories.
 # Fetch books based on selection
 books = fetch_books(category_name)
 
-# Display books in a grid format
+# Display books in a grid
 st.subheader(f"🔍 Books in {category_name}")
-
 col1, col2 = st.columns(2)
 for index, book in enumerate(books):
     info = book.get("volumeInfo", {})
@@ -114,17 +115,15 @@ for index, book in enumerate(books):
         if st.button(f"⭐ Add to Favorites {index+1}", key=f"add_{index}"):
             add_to_favorites(book)
 
-# 📌 User-Added Books Section
+# User-Added Books Section
 st.subheader("📝 Add Your Own Book")
-
 with st.form("add_book_form"):
     title = st.text_input("📖 Book Title")
     author = st.text_input("👨‍💼 Author")
     category = st.text_input("📂 Category")
     image_url = st.text_input("🖼️ Image URL (Optional)")
 
-    submitted = st.form_submit_button("➕ Add Book")
-    if submitted:
+    if st.form_submit_button("➕ Add Book"):
         add_custom_book(title, author, category, image_url)
 
 # Display user-added books
@@ -147,7 +146,7 @@ if st.session_state.user_books:
             if st.button(f"❌ Remove '{title}'", key=f"remove_user_{index}"):
                 remove_custom_book(book)
 
-# ⭐ Favorites Section
+# Favorites Section
 st.sidebar.subheader("⭐ My Favorite Books")
 if st.session_state.favorites:
     for book in st.session_state.favorites:
