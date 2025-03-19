@@ -41,15 +41,34 @@ if "favorites" not in st.session_state:
 if "user_books" not in st.session_state:
     st.session_state.user_books = []
 
-# Function to fetch books
+# # Function to fetch books
+# def fetch_books(category):
+#     search_query = categories.get(category, "fiction")
+#     response = requests.get(API_URL.format(search_term=search_query))
+#     if response.status_code == 200:
+#         data = response.json()
+#         return data.get("items", [])[:5]
+#     st.error("Failed to fetch books. Please try again later.")
+#     return []
+
 def fetch_books(category):
     search_query = categories.get(category, "fiction")
-    response = requests.get(API_URL.format(search_term=search_query))
-    if response.status_code == 200:
-        data = response.json()
-        return data.get("items", [])[:5]
-    st.error("Failed to fetch books. Please try again later.")
-    return []
+    try:
+        response = requests.get(API_URL.format(search_term=search_query), timeout=5)
+        if response.status_code == 200:
+            data = response.json()
+            if "items" in data:
+                return data["items"][:5]  # Return first 5 books
+            else:
+                st.warning("No books found in this category.")
+                return []
+        else:
+            st.error(f"Error {response.status_code}: Unable to fetch books.")
+            return []
+    except requests.exceptions.RequestException as e:
+        st.error(f"Failed to fetch books. Please check your internet connection.")
+        return []
+
 
 # Function to add a book to favorites
 def add_to_favorites(book):
