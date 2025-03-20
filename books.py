@@ -1,55 +1,21 @@
-import streamlit as st
 import requests
-
-# Set page configuration
-st.set_page_config(page_title="📚 Book Explorer", layout="wide")
-
-# Custom CSS for styling
-st.markdown(
-    """
-    <style>
-        .main {
-            background-color: #FFDAB9;
-        }
-        [data-testid="stSidebar"] {
-            background-color: #D2B48C;
-        }
-        .stButton > button {
-            background-color: #8B4513 !important;
-            color: white !important;
-            border-radius: 5px;
-        }
-    </style>
-    """,
-    unsafe_allow_html=True
-)
+import json
+import sys
 
 # API URL
 API_URL = "https://www.googleapis.com/books/v1/volumes?q={search_term}"
 
 # Define categories
 categories = {
-    "📖 Fiction": "fiction",
-    "🔬 Science & Technology": "science",
-    "🕌 Islamic Books": "Islam",
-    "🎓 Knowledge & Learning": "education"
+    "1": "fiction",
+    "2": "science",
+    "3": "Islam",
+    "4": "education"
 }
 
-# Initialize session state for favorites and user-added books
-if "favorites" not in st.session_state:
-    st.session_state.favorites = []
-if "user_books" not in st.session_state:
-    st.session_state.user_books = []
-
-# # Function to fetch books
-# def fetch_books(category):
-#     search_query = categories.get(category, "fiction")
-#     response = requests.get(API_URL.format(search_term=search_query))
-#     if response.status_code == 200:
-#         data = response.json()
-#         return data.get("items", [])[:5]
-#     st.error("Failed to fetch books. Please try again later.")
-#     return []
+# User Data
+favorites = []
+user_books = []
 
 def fetch_books(category):
     search_query = categories.get(category, "fiction")
@@ -57,130 +23,107 @@ def fetch_books(category):
         response = requests.get(API_URL.format(search_term=search_query), timeout=5)
         if response.status_code == 200:
             data = response.json()
-            if "items" in data:
-                return data["items"][:5]  # Return first 5 books
-            else:
-                st.warning("No books found in this category.")
-                return []
+            return data.get("items", [])[:5]
         else:
-            st.error(f"Error {response.status_code}: Unable to fetch books.")
+            print(f"Error {response.status_code}: Unable to fetch books.")
             return []
-    except requests.exceptions.RequestException as e:
-        st.error(f"Failed to fetch books. Please check your internet connection.")
+    except requests.exceptions.RequestException:
+        print("Failed to fetch books. Please check your internet connection.")
         return []
 
+def display_books(books):
+    if not books:
+        print("No books found.")
+        return
+    
+    for i, book in enumerate(books, 1):
+        info = book.get("volumeInfo", {})
+        title = info.get("title", "No Title")
+        authors = ", ".join(info.get("authors", ["Unknown"]))
+        category = ", ".join(info.get("categories", ["No Category"]))
+        print(f"{i}. {title} (by {authors}) [Category: {category}]")
 
-# Function to add a book to favorites
 def add_to_favorites(book):
-    if book not in st.session_state.favorites:
-        st.session_state.favorites.append(book)
-        st.success(f"✅ '{book['volumeInfo'].get('title', 'No Title')}' added to favorites!")
+    if book not in favorites:
+        favorites.append(book)
+        print(f"Added '{book['volumeInfo'].get('title', 'No Title')}' to favorites!")
+    else:
+        print("Book is already in favorites.")
 
-# Function to remove a book from favorites
-def remove_from_favorites(book):
-    if book in st.session_state.favorites:
-        st.session_state.favorites.remove(book)
-        st.warning(f"❌ '{book['volumeInfo'].get('title', 'No Title')}' removed from favorites.")
-
-# Function to add a custom book
-def add_custom_book(title, author, category, image_url):
+def add_custom_book():
+    title = input("Enter book title: ")
+    author = input("Enter author name: ")
+    category = input("Enter category: ")
     if title and author and category:
         new_book = {
             "volumeInfo": {
                 "title": title,
                 "authors": [author],
-                "categories": [category],
-                "imageLinks": {"thumbnail": image_url if image_url else "https://via.placeholder.com/128x195.png?text=No+Image"},
+                "categories": [category]
             }
         }
-        st.session_state.user_books.append(new_book)
-        st.success(f"✅ '{title}' added to the list!")
+        user_books.append(new_book)
+        print(f"Book '{title}' added successfully!")
     else:
-        st.error("⚠️ Please provide Title, Author, and Category.")
+        print("Please provide all details.")
 
-# Function to remove a custom book
-def remove_custom_book(book):
-    if book in st.session_state.user_books:
-        st.session_state.user_books.remove(book)
-        st.warning(f"❌ '{book['volumeInfo']['title']}' removed from your list.")
+def remove_book(book_list, book_title):
+    for book in book_list:
+        if book["volumeInfo"].get("title", "No Title").lower() == book_title.lower():
+            book_list.remove(book)
+            print(f"Removed '{book_title}'.")
+            return
+    print("Book not found.")
 
-# Title
-st.title("📚 Book Explorer")
+def main():
+    while True:
+        print("\n📚 Welcome to the CLI Book Library!")
+        print("1. Search Books by Category")
+        print("2. View Favorites")
+        print("3. Add Custom Book")
+        print("4. Remove a Book from Favorites")
+        print("5. Remove a Custom Book")
+        print("6. Exit")
+        choice = input("Enter your choice: ")
 
-# Sidebar for category selection
-category_name = st.sidebar.selectbox("📂 Choose a Category:", list(categories.keys()))
+        if choice == "1":
+            print("Select a Category:")
+            for key, value in categories.items():
+                print(f"{key}. {value.capitalize()}")
+            category_choice = input("Enter category number: ")
+            books = fetch_books(category_choice)
+            display_books(books)
+            
+            if books:
+                fav_choice = input("Enter book number to add to favorites (or press Enter to skip): ")
+                if fav_choice.isdigit():
+                    book_index = int(fav_choice) - 1
+                    if 0 <= book_index < len(books):
+                        add_to_favorites(books[book_index])
+                    else:
+                        print("Invalid choice.")
 
-# Fetch books based on selection
-books = fetch_books(category_name)
+        elif choice == "2":
+            print("\n⭐ Favorite Books:")
+            display_books(favorites)
 
-# Display books in a grid
-st.subheader(f"🔍 Books in {category_name}")
-col1, col2 = st.columns(2)
-for index, book in enumerate(books):
-    info = book.get("volumeInfo", {})
-    title = info.get("title", "No Title")
-    authors = info.get("authors", ["Unknown"])
-    category = info.get("categories", ["No Category"])
-    thumbnail = info.get("imageLinks", {}).get("thumbnail", "https://via.placeholder.com/128x195.png?text=No+Image")
-    preview_link = info.get("previewLink", "#")
+        elif choice == "3":
+            add_custom_book()
 
-    with col1 if index % 2 == 0 else col2:
-        st.image(thumbnail, width=120)
-        st.write(f"**📖 {title}**")
-        st.write(f"👨‍💼 **Authors:** {', '.join(authors)}")
-        st.write(f"📂 **Category:** {', '.join(category)}")
-        st.markdown(f"[🔗 Preview Book]({preview_link})", unsafe_allow_html=True)
+        elif choice == "4":
+            title = input("Enter book title to remove from favorites: ")
+            remove_book(favorites, title)
 
-        if st.button(f"⭐ Add to Favorites {index+1}", key=f"add_{index}"):
-            add_to_favorites(book)
+        elif choice == "5":
+            title = input("Enter book title to remove from your collection: ")
+            remove_book(user_books, title)
 
-# User-Added Books Section
-st.subheader("📝 Add Your Own Book")
-with st.form("add_book_form"):
-    title = st.text_input("📖 Book Title")
-    author = st.text_input("👨‍💼 Author")
-    category = st.text_input("📂 Category")
-    image_url = st.text_input("🖼️ Image URL (Optional)")
+        elif choice == "6":
+            print("Goodbye! Happy reading! 📖")
+            sys.exit()
 
-    if st.form_submit_button("➕ Add Book"):
-        add_custom_book(title, author, category, image_url)
+        else:
+            print("Invalid choice. Please try again.")
 
-# Display user-added books
-if st.session_state.user_books:
-    st.subheader("📚 Your Added Books")
-    col1, col2 = st.columns(2)
-    for index, book in enumerate(st.session_state.user_books):
-        info = book.get("volumeInfo", {})
-        title = info.get("title", "No Title")
-        authors = info.get("authors", ["Unknown"])
-        category = info.get("categories", ["No Category"])
-        thumbnail = info.get("imageLinks", {}).get("thumbnail", "https://via.placeholder.com/128x195.png?text=No+Image")
-
-        with col1 if index % 2 == 0 else col2:
-            st.image(thumbnail, width=120)
-            st.write(f"**📖 {title}**")
-            st.write(f"👨‍💼 **Authors:** {', '.join(authors)}")
-            st.write(f"📂 **Category:** {', '.join(category)}")
-
-            if st.button(f"❌ Remove '{title}'", key=f"remove_user_{index}"):
-                remove_custom_book(book)
-
-# Favorites Section
-st.sidebar.subheader("⭐ My Favorite Books")
-if st.session_state.favorites:
-    for book in st.session_state.favorites:
-        info = book.get("volumeInfo", {})
-        title = info.get("title", "No Title")
-        authors = info.get("authors", ["Unknown"])
-        thumbnail = info.get("imageLinks", {}).get("thumbnail", "https://via.placeholder.com/128x195.png?text=No+Image")
-        preview_link = info.get("previewLink", "#")
-
-        with st.sidebar:
-            st.image(thumbnail, width=80)
-            st.write(f"**📖 {title}**")
-            st.write(f"👨‍💼 **Authors:** {', '.join(authors)}")
-            st.markdown(f"[🔗 Preview Book]({preview_link})", unsafe_allow_html=True)
-            if st.button(f"❌ Remove '{title}'", key=f"remove_fav_{title}"):
-                remove_from_favorites(book)
-else:
-    st.sidebar.write("😢 No favorites yet.")
+if __name__ == "__main__":
+    main()
